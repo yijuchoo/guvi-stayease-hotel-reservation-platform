@@ -5,14 +5,18 @@ import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class NotificationService {
-
-    private final JavaMailSender mailSender;
 
     @Value("${twilio.account-sid}")
     private String accountSid;
@@ -23,8 +27,16 @@ public class NotificationService {
     @Value("${twilio.phone-number}")
     private String twilioPhoneNumber;
 
-    public NotificationService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+    @Value("${brevo.api-key}")
+    private String brevoApiKey;
+
+    @Value("${brevo.sender-email}")
+    private String senderEmail;
+
+    private final RestTemplate restTemplate;
+
+    public NotificationService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
     @PostConstruct
@@ -34,13 +46,30 @@ public class NotificationService {
 
     public void sendEmail(String to, String subject, String body) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(body);
-            mailSender.send(message);
+            String url = "https://api.brevo.com/v3/smtp/email";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("api-key", brevoApiKey);
+
+            Map<String, Object> payload = new HashMap<>();
+
+            Map<String, String> sender = new HashMap<>();
+            sender.put("name", "StayEase");
+            sender.put("email", senderEmail);
+            payload.put("sender", sender);
+
+            Map<String, String> recipient = new HashMap<>();
+            recipient.put("email", to);
+            payload.put("to", List.of(recipient));
+
+            payload.put("subject", subject);
+            payload.put("textContent", body);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+            restTemplate.postForEntity(url, request, String.class);
+
         } catch (Exception e) {
-            // Notification failures should never break the actual business operation
             System.err.println("Failed to send email to " + to + ": " + e.getMessage());
         }
     }
