@@ -1,6 +1,7 @@
 package com.stayease.backend.controller;
 
 import com.stayease.backend.dto.HotelRequest;
+import com.stayease.backend.dto.HotelWithStatsResponse;
 import com.stayease.backend.model.Hotel;
 import com.stayease.backend.model.User;
 import com.stayease.backend.repository.UserRepository;
@@ -85,9 +86,9 @@ public class HotelController {
     @Operation(summary = "View all hotels owned by the currently authenticated Hotel Manager")
     @GetMapping("/my-hotels")
     @PreAuthorize("hasRole('HOTEL_MANAGER')")
-    public ResponseEntity<List<Hotel>> getMyHotels(Authentication authentication) {
+    public ResponseEntity<List<HotelWithStatsResponse>> getMyHotels(Authentication authentication) {
         String ownerId = currentUserService.getCurrentUserId(authentication);
-        return ResponseEntity.ok(hotelService.getHotelsByOwner(ownerId));
+        return ResponseEntity.ok(hotelService.getHotelsWithStatsByOwner(ownerId));
     }
 
     @Operation(summary = "Search hotels by city, price, rating, amenities, and date availability")

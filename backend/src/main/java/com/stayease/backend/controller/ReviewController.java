@@ -1,6 +1,7 @@
 package com.stayease.backend.controller;
 
 import com.stayease.backend.dto.ReviewRequest;
+import com.stayease.backend.dto.ReviewResponse;
 import com.stayease.backend.model.Review;
 import com.stayease.backend.security.CurrentUserService;
 import com.stayease.backend.service.ReviewService;
@@ -50,7 +51,7 @@ public class ReviewController {
     // Public - anyone can read reviews for a hotel
     @Operation(summary = "View all reviews for a specific hotel")
     @GetMapping("/hotel/{hotelId}")
-    public ResponseEntity<List<Review>> getReviewsForHotel(@PathVariable String hotelId) {
+    public ResponseEntity<List<ReviewResponse>> getReviewsForHotel(@PathVariable String hotelId) {
         return ResponseEntity.ok(reviewService.getReviewsByHotel(hotelId));
     }
 }

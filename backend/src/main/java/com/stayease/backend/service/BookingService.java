@@ -1,6 +1,7 @@
 package com.stayease.backend.service;
 
 import com.stayease.backend.dto.BookingRequest;
+import com.stayease.backend.dto.BookingWithDetailsResponse;
 import com.stayease.backend.model.Booking;
 import com.stayease.backend.model.Hotel;
 import com.stayease.backend.model.Room;
@@ -97,14 +98,29 @@ public class BookingService {
     }
 
     // check that the requesting manager actually owns that specific hotel
-    public List<Booking> getBookingsByHotelForOwner(String hotelId, String requestingUserId) {
-        Hotel hotel = hotelService.getHotelById(hotelId); // throws if hotel doesn't exist
+    public List<BookingWithDetailsResponse> getBookingsByHotelForOwner(String hotelId, String requestingUserId) {
+        Hotel hotel = hotelService.getHotelById(hotelId);
 
         if (!hotel.getOwnerId().equals(requestingUserId)) {
             throw new SecurityException("You do not have permission to view bookings for this hotel");
         }
 
-        return bookingRepository.findByHotelId(hotelId);
+        List<Booking> bookings = bookingRepository.findByHotelId(hotelId);
+
+        return bookings.stream().map(booking -> {
+            String customerName = userRepository.findById(booking.getCustomerId())
+                    .map(User::getFullName)
+                    .orElse("Unknown Customer");
+
+            String roomType = "Room";
+            try {
+                Room room = roomService.getRoomById(booking.getRoomId());
+                roomType = room.getRoomType();
+            } catch (Exception ignored) {
+            }
+
+            return new BookingWithDetailsResponse(booking, customerName, roomType);
+        }).toList();
     }
 
     public Booking getBookingById(String id) {
@@ -117,6 +133,11 @@ public class BookingService {
 
         if (!booking.getCustomerId().equals(requestingUserId)) {
             throw new SecurityException("You do not have permission to cancel this booking");
+        }
+        // Block cancellation once check-in date has passed
+        if (booking.getCheckInDate().isBefore(LocalDate.now())) {
+            throw new IllegalStateException(
+                    "This booking's check-in date has already passed and can no longer be cancelled");
         }
 
         booking.setStatus("CANCELLED");

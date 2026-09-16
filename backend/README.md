@@ -6,6 +6,8 @@ Hotel Reservation Platform backend, built with Spring Boot and MongoDB. Inspired
 
 **API Docs (Swagger):** https://stayease-backend-gbsv.onrender.com/swagger-ui/index.html
 
+**Live Frontend:** _(link added once deployed — see `frontend/README.md`)_
+
 > Note: the backend is hosted on Render's free tier, which spins down after 15 minutes of inactivity. The first request after a period of inactivity may take 30–60 seconds while the service wakes up.
 
 ---
@@ -23,14 +25,14 @@ Hotel Reservation Platform backend, built with Spring Boot and MongoDB. Inspired
 
 ## Features
 
-1. User Authentication & Account Management (register, login, JWT, password recovery, profile management)
-2. Hotel Management (CRUD, ownership-restricted to the owning Hotel Manager)
-3. Room Management (inventory, pricing, capacity, per-hotel ownership enforcement)
+1. User Authentication & Account Management (register, login, JWT, password recovery, profile view/edit)
+2. Hotel Management (create/edit, ownership-restricted to the owning Hotel Manager, room/booking counts on listing)
+3. Room Management (create/edit inventory, pricing, capacity, per-hotel ownership enforcement)
 4. Hotel Search & Discovery (filter by city, price, rating, amenities, real-time date availability)
-5. Hotel Booking (date-overlap availability checking, automatic price calculation)
-6. Payment Management (simulated payment flow — no real payment gateway integrated)
-7. Booking History (customer's own bookings; hotel manager's bookings for owned properties)
-8. Reviews & Ratings (one review per customer per hotel, tied to a real booking, auto-updates hotel's star rating)
+5. Hotel Booking (date-overlap availability checking, automatic price calculation, cancellation cut off at check-in date, stale unpaid bookings auto-cancelled by a scheduled job)
+6. Payment Management (simulated payment flow — no real payment gateway integrated; blocked once check-in date has passed)
+7. Booking History (customer's own bookings enriched with hotel/room details; hotel manager's bookings enriched with customer name and room type)
+8. Reviews & Ratings (one review per booking — repeat guests can review each stay — with reviewer name and room type shown, auto-updates hotel's star rating)
 9. Notifications (email via Brevo, SMS via Twilio — booking, payment, cancellation, and account events)
 10. Dashboards & Reports (role-specific: Customer, Hotel Manager, Admin)
 
@@ -119,6 +121,23 @@ Bookings are created with status `PENDING`. A separate `POST /api/payments` call
 ### Notification failures never block business operations
 
 `NotificationService` catches and logs all email/SMS failures internally rather than propagating them. A booking or payment should never fail just because a downstream notification service had an outage — this mirrors how production systems typically decouple core transactions from side-effect notifications.
+
+### Date-based booking lifecycle enforcement
+
+A booking can only be cancelled or paid for while its check-in date is still today or in the future — once check-in has passed, both actions are blocked with a clear error message, since paying for or cancelling a stay that should already have happened doesn't make sense. A scheduled job (`BookingCleanupScheduler`, running hourly via `@Scheduled`) automatically cancels any `PENDING` booking whose check-in date has passed without payment, modeling a lapsed reservation.
+
+### CORS
+
+Allowed origins are configured in `SecurityConfig`'s `corsConfigurationSource()` bean and must include every frontend origin that calls this API — currently `http://localhost:5173` (Vite dev server) plus the deployed frontend's production URL. When the frontend's production URL changes (e.g., after a Vercel/Netlify redeploy to a new domain), this list must be updated and the backend redeployed for cross-origin requests to keep working.
+
+### Response enrichment via dedicated DTOs
+
+Several endpoints return enriched response DTOs rather than raw entities, since the frontend needs display data that spans more than one collection:
+- **`HotelWithStatsResponse`** (`GET /api/hotels/my-hotels`) — adds `totalRooms` and `totalBookings` counts alongside each hotel's own fields, so a Hotel Manager can see property-level stats without a separate round trip per hotel.
+- **`BookingWithDetailsResponse`** (`GET /api/bookings/hotel/{hotelId}`) — adds the customer's `fullName` and the booked room's `roomType` to each booking, resolved via `UserRepository` and `RoomService` lookups, so a manager reviewing bookings sees who booked what without needing separate user/room lookups client-side.
+- **`ReviewResponse`** (`GET /api/reviews/hotel/{hotelId}`) — adds the reviewer's `customerName` and the `roomType` they stayed in, resolved the same way, so reviews are attributable and contextual rather than anonymous ids.
+
+These are read-side enrichments only — the underlying `Hotel`, `Booking`, and `Review` documents remain unchanged; the enrichment happens in the service layer when building the response.
 
 ---
 

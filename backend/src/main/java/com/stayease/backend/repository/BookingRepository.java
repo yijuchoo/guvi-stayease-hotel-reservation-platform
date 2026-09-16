@@ -18,4 +18,6 @@ public interface BookingRepository extends MongoRepository<Booking, String> {
     @Query("{ 'room_id': ?0, 'status': { $ne: 'CANCELLED' }, " +
             "'check_in_date': { $lt: ?2 }, 'check_out_date': { $gt: ?1 } }")
     List<Booking> findOverlappingBookings(String roomId, LocalDate checkInDate, LocalDate checkOutDate);
+
+    List<Booking> findByStatus(String status);
 }

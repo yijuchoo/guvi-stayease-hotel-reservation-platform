@@ -1,9 +1,6 @@
 package com.stayease.backend.dto;
 
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
 
@@ -13,7 +10,7 @@ public class BookingRequest {
     private String roomId;
 
     @NotNull(message = "Check-in date is required")
-    @Future(message = "Check-in date must be in the future")
+    @FutureOrPresent(message = "Check-in date cannot be in the past")
     private LocalDate checkInDate;
 
     @NotNull(message = "Check-out date is required")

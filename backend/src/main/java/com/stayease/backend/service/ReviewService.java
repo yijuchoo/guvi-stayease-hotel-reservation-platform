@@ -1,10 +1,10 @@
 package com.stayease.backend.service;
 
 import com.stayease.backend.dto.ReviewRequest;
-import com.stayease.backend.model.Booking;
-import com.stayease.backend.model.Hotel;
-import com.stayease.backend.model.Review;
+import com.stayease.backend.dto.ReviewResponse;
+import com.stayease.backend.model.*;
 import com.stayease.backend.repository.ReviewRepository;
+import com.stayease.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,12 +17,17 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final BookingService bookingService;
     private final HotelService hotelService;
+    private final RoomService roomService;
+    private final UserRepository userRepository;
 
     @Autowired
-    public ReviewService(ReviewRepository reviewRepository, BookingService bookingService, HotelService hotelService) {
+    public ReviewService(ReviewRepository reviewRepository, BookingService bookingService, HotelService hotelService,
+                         RoomService roomService, UserRepository userRepository) {
         this.reviewRepository = reviewRepository;
         this.bookingService = bookingService;
         this.hotelService = hotelService;
+        this.roomService = roomService;
+        this.userRepository = userRepository;
     }
 
     public Review createReview(ReviewRequest request, String customerId) {
@@ -36,8 +41,8 @@ public class ReviewService {
             throw new IllegalStateException("You can only review completed or confirmed stays");
         }
 
-        if (reviewRepository.findByHotelIdAndCustomerId(booking.getHotelId(), customerId).isPresent()) {
-            throw new IllegalStateException("You have already reviewed this hotel");
+        if (reviewRepository.findByBookingId(booking.getId()).isPresent()) {
+            throw new IllegalStateException("You have already reviewed this booking");
         }
 
         Review review = new Review();
@@ -55,8 +60,28 @@ public class ReviewService {
         return saved;
     }
 
-    public List<Review> getReviewsByHotel(String hotelId) {
-        return reviewRepository.findByHotelId(hotelId);
+    public List<ReviewResponse> getReviewsByHotel(String hotelId) {
+        List<Review> reviews = reviewRepository.findByHotelId(hotelId);
+
+        return reviews.stream().map(review -> {
+            String customerName = userRepository.findById(review.getCustomerId())
+                    .map(User::getFullName)
+                    .orElse("Anonymous Guest");
+
+            String roomType = "Room";
+            try {
+                Booking booking = bookingService.getBookingById(review.getBookingId());
+                Room room = roomService.getRoomById(booking.getRoomId());
+                roomType = room.getRoomType();
+            } catch (Exception ignored) {
+                // booking or room may have been removed; fall back to generic label
+            }
+
+            return new ReviewResponse(
+                    review.getId(), review.getHotelId(), review.getCustomerId(), customerName,
+                    review.getBookingId(), roomType, review.getRating(), review.getComment(), review.getCreatedAt()
+            );
+        }).toList();
     }
 
     private void updateHotelRating(String hotelId) {
@@ -67,7 +92,7 @@ public class ReviewService {
                 .orElse(0.0);
 
         Hotel hotel = hotelService.getHotelById(hotelId);
-        hotel.setStarRating(Math.round(average * 10.0) / 10.0); // round to 1 decimal place
+        hotel.setStarRating(Math.round(average * 10.0) / 10.0);
         hotelService.saveHotel(hotel);
     }
 }

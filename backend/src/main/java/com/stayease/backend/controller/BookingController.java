@@ -1,6 +1,7 @@
 package com.stayease.backend.controller;
 
 import com.stayease.backend.dto.BookingRequest;
+import com.stayease.backend.dto.BookingWithDetailsResponse;
 import com.stayease.backend.model.Booking;
 import com.stayease.backend.security.CurrentUserService;
 import com.stayease.backend.service.BookingService;
@@ -56,11 +57,10 @@ public class BookingController {
     @Operation(summary = "View all bookings for a hotel (owning Hotel Manager only)")
     @GetMapping("/hotel/{hotelId}")
     @PreAuthorize("hasRole('HOTEL_MANAGER')")
-    public ResponseEntity<?> getBookingsForHotel(@PathVariable String hotelId,
-                                                 Authentication authentication) {
+    public ResponseEntity<?> getBookingsForHotel(@PathVariable String hotelId, Authentication authentication) {
         try {
             String userId = currentUserService.getCurrentUserId(authentication);
-            List<Booking> bookings = bookingService.getBookingsByHotelForOwner(hotelId, userId);
+            List<BookingWithDetailsResponse> bookings = bookingService.getBookingsByHotelForOwner(hotelId, userId);
             return ResponseEntity.ok(bookings);
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());

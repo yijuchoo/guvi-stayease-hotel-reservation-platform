@@ -9,6 +9,7 @@ import com.stayease.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -38,7 +39,13 @@ public class PaymentService {
         }
 
         if (!"PENDING".equals(booking.getStatus())) {
-            throw new IllegalStateException("This booking is not awaiting payment (current status: " + booking.getStatus() + ")");
+            throw new IllegalStateException(
+                    "This booking is not awaiting payment (current status: " + booking.getStatus() + ")");
+        }
+        // Block payment once check-in date has passed
+        if (booking.getCheckInDate().isBefore(LocalDate.now())) {
+            throw new IllegalStateException(
+                    "This booking's check-in date has passed. Payment can no longer be made for this stay.");
         }
 
         if (paymentRepository.findByBookingId(booking.getId()).isPresent()) {
