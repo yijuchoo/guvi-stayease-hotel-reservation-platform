@@ -1,7 +1,7 @@
-import {useState} from 'react';
-import {useNavigate, Link} from 'react-router-dom';
-import {registerUser} from '../../api/auth';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { registerUser } from '../../api/auth';
+import { extractErrorMessage } from '../../utils/errorHelpers';
 
 function RegisterPage() {
     const [fullName, setFullName] = useState('');
@@ -11,27 +11,61 @@ function RegisterPage() {
     const [role, setRole] = useState<'CUSTOMER' | 'HOTEL_MANAGER'>('CUSTOMER');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showSlowHint, setShowSlowHint] = useState(false);
+    const [success, setSuccess] = useState(false);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        let timer: ReturnType<typeof setTimeout>;
+        if (loading) {
+            timer = setTimeout(() => setShowSlowHint(true), 4000);
+        } else {
+            setShowSlowHint(false);
+        }
+        return () => clearTimeout(timer);
+    }, [loading]);
+
+    useEffect(() => {
+        if (success) {
+            const timer = setTimeout(() => navigate('/login'), 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [success, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
         try {
-            await registerUser({fullName, email, password, phoneNumber, role});
-            navigate('/login');
+            await registerUser({ fullName, email, password, phoneNumber, role });
+            setSuccess(true);
         } catch (err) {
-            if (axios.isAxiosError(err) && err.response?.status === 409) {
-                setError('An account with this email already exists.');
-            } else if (axios.isAxiosError(err) && err.response?.data) {
-                setError(typeof err.response.data === 'string' ? err.response.data : 'Registration failed.');
+            if (err && typeof err === 'object' && 'response' in err) {
+                const axiosErr = err as { response?: { status?: number } };
+                if (axiosErr.response?.status === 409) {
+                    setError('An account with this email already exists.');
+                } else {
+                    setError(extractErrorMessage(err, 'Registration failed.'));
+                }
             } else {
-                setError('Something went wrong. Please try again.');
+                setError(extractErrorMessage(err, 'Registration failed.'));
             }
         } finally {
             setLoading(false);
         }
     };
+
+    if (success) {
+        return (
+            <div className="flex items-center justify-center px-6 py-16">
+                <div className="bg-white rounded-lg shadow-sm p-8 w-full max-w-sm text-center">
+                    <div className="text-4xl mb-4">✓</div>
+                    <h1 className="text-xl font-serif font-bold text-charcoal mb-2">Account created!</h1>
+                    <p className="text-gray-500 text-sm">Taking you to log in...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center justify-center px-6 py-16">
@@ -92,10 +126,15 @@ function RegisterPage() {
                     >
                         {loading ? 'Creating account...' : 'Register'}
                     </button>
+                    {showSlowHint && (
+                        <p className="text-xs text-gray-500 text-center leading-relaxed">
+                            This is taking a little longer than usual. Please stay on this page — we're almost there!
+                        </p>
+                    )}
                 </form>
 
                 <div className="mt-4 text-center text-sm text-gray-500">
-                    Already have an account? <Link to="/login" className="text-teal-600 font-medium">Log in</Link>
+                    Already have an account? <Link to="/login" className="text-teal-600 font-medium underline underline-offset-2 hover:text-teal-900">Log in</Link>
                 </div>
             </div>
         </div>
