@@ -6,7 +6,7 @@ Hotel Reservation Platform backend, built with Spring Boot and MongoDB. Inspired
 
 **API Docs (Swagger):** https://stayease-backend-gbsv.onrender.com/swagger-ui/index.html
 
-**Live Frontend:** _(link added once deployed — see `frontend/README.md`)_
+**Live Frontend:** https://guvi-stayease-hotel-reservation-pla.vercel.app
 
 > Note: the backend is hosted on Render's free tier, which spins down after 15 minutes of inactivity. The first request after a period of inactivity may take 30–60 seconds while the service wakes up.
 
